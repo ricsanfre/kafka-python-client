@@ -63,6 +63,31 @@ def dict_to_user(obj, ctx):
                 favorite_number=obj['favorite_number'],
                 favorite_color=obj['favorite_color'])
 
+def sasl_conf(args):
+    sasl_mechanism = args.sasl_mechanism.upper()
+
+    sasl_conf = {'sasl.mechanism': sasl_mechanism}
+
+    if args.enab_tls and args.ca_cert is not None:
+        sasl_conf.update({'security.protocol': 'SASL_SSL',
+                          'ssl.ca.location': args.ca_cert})
+
+    else:    
+        sasl_conf.update({'security.protocol': 'SASL_PLAINTEXT'})
+
+
+    if sasl_mechanism != 'GSSAPI':
+        sasl_conf.update({'sasl.username': args.user_principal,
+                          'sasl.password': args.user_secret})
+
+    if sasl_mechanism == 'GSSAPI':
+        sasl_conf.update({'sasl.kerberos.service.name', args.broker_principal,
+                          # Keytabs are not supported on Windows. Instead the
+                          # the logged on user's credentials are used to
+                          # authenticate.
+                          'sasl.kerberos.principal', args.user_principal,
+                          'sasl.kerberos.keytab', args.user_secret})
+    return sasl_conf
 
 def main(args):
     topic = args.topic
@@ -87,6 +112,7 @@ def main(args):
     consumer_conf = {'bootstrap.servers': args.bootstrap_servers,
                      'group.id': args.group,
                      'auto.offset.reset': "earliest"}
+    consumer_conf.update(sasl_conf(args))
 
     consumer = Consumer(consumer_conf)
     consumer.subscribe([topic])
@@ -124,5 +150,18 @@ if __name__ == '__main__':
                         help="Consumer group")
     parser.add_argument('-p', dest="specific", default="true",
                         help="Avro specific record")
+    parser.add_argument('-m', dest="sasl_mechanism", default='PLAIN',
+                        choices=['GSSAPI', 'PLAIN',
+                                 'SCRAM-SHA-512', 'SCRAM-SHA-256'],
+                        help="SASL mechanism to use for authentication."
+                             "Defaults to PLAIN")
+    parser.add_argument('--tls', dest="enab_tls", default=False)
+    parser.add_argument('--cacert',dest="ca_cert", default=None, 
+                        help="Path to CA certificate for TLS authentication")
+    parser.add_argument('--user', dest="user_principal", required=True,
+                        help="Username")
+    parser.add_argument('--password', dest="user_secret", required=True,
+                        help="Password for PLAIN and SCRAM, or path to"
+                             " keytab (ignored on Windows) if GSSAPI.")
 
     main(parser.parse_args())
