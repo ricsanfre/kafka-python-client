@@ -103,6 +103,9 @@ def main(args):
         schema_str = f.read()
 
     sr_conf = {'url': args.schema_registry}
+    if 'https' in args.schema_registry and args.ca_cert is not None:
+        sr_conf.update({'ssl.ca.location': args.ca_cert})
+       
     schema_registry_client = SchemaRegistryClient(sr_conf)
 
     avro_deserializer = AvroDeserializer(schema_registry_client,
