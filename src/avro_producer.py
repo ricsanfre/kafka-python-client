@@ -101,10 +101,10 @@ def sasl_conf(args):
 
     sasl_conf = {'sasl.mechanism': sasl_mechanism}
 
-    if args.enab_tls and args.ca_cert is not None:
-        sasl_conf.update({'security.protocol': 'SASL_SSL',
-                          'ssl.ca.location': args.ca_cert})
-
+    if args.enab_tls:
+        sasl_conf.update({'security.protocol': 'SASL_SSL'})
+        if args.ca_cert is not None:
+            sasl_conf.update({'ssl.ca.location': args.ca_cert})    
     else:    
         sasl_conf.update({'security.protocol': 'SASL_PLAINTEXT'})
 
@@ -138,6 +138,11 @@ def main(args):
         schema_str = f.read()
 
     schema_registry_conf = {'url': args.schema_registry}
+
+    #Adding SchemaRegistry credentials
+    if args.registry_password is not None and args.registry_password is not None:
+        schema_registry_conf.update({'basic.auth.user.info': f"{args.registry_user}:{args.registry_password}"})
+
     if 'https' in args.schema_registry and args.ca_cert is not None:
         print("Using CA cert at {} to connect to schema registry".format(args.ca_cert))
         schema_registry_conf.update({'ssl.ca.location': args.ca_cert})
@@ -186,7 +191,11 @@ if __name__ == '__main__':
     parser.add_argument('-b', dest="bootstrap_servers", required=True,
                         help="Bootstrap broker(s) (host[:port])")
     parser.add_argument('-s', dest="schema_registry", required=True,
-                        help="Schema Registry (http(s)://host[:port]")
+                        help="Schema Registry (http(s)://host[:port]"),
+    parser.add_argument('-su', dest="registry_user", default=None,
+                        help="Schema Registry user")
+    parser.add_argument('-sp', dest="registry_password", default=None,
+                        help="Schema Registry password")
     parser.add_argument('-t', dest="topic", default="example_serde_avro",
                         help="Topic name")
     parser.add_argument('-p', dest="specific", default="true",
